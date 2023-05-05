@@ -13,3 +13,4 @@ flash-attn
 deepspeed
 einops
 xformers
+packaging
