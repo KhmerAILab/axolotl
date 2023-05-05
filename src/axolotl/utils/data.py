@@ -8,6 +8,7 @@ from huggingface_hub import hf_hub_download
 from axolotl.datasets import TokenizedPromptDataset, ConstantLengthDataset
 from axolotl.prompt_tokenizers import (
     AlpacaPromptTokenizingStrategy,
+    CompletionPromptTokenizingStrategy,
     GPTeacherPromptTokenizingStrategy,
     OpenAssistantPromptTokenizingStrategy,
     AlpacaReflectionPTStrategy,
@@ -15,6 +16,7 @@ from axolotl.prompt_tokenizers import (
 )
 from axolotl.prompters import (
     AlpacaPrompter,
+    CompletionPrompter,
     GPTeacherPrompter,
     ReflectAlpacaPrompter,
     ShareGPTPrompter,
@@ -79,6 +81,15 @@ def load_prepare_datasets(tokenizer, cfg, default_dataset_prepared_path):
             if d.type == "alpaca":
                 ds_strategy = AlpacaPromptTokenizingStrategy(
                     AlpacaPrompter(), tokenizer, cfg.train_on_inputs, cfg.sequence_len
+                )
+                ds_wrapper = TokenizedPromptDataset(ds_strategy, ds["train"])
+                datasets.append(ds_wrapper)
+            elif d.type == "completion":
+                ds_strategy = CompletionPromptTokenizingStrategy(
+                    CompletionPrompter(),
+                    tokenizer,
+                    cfg.train_on_inputs,
+                    cfg.sequence_len,
                 )
                 ds_wrapper = TokenizedPromptDataset(ds_strategy, ds["train"])
                 datasets.append(ds_wrapper)

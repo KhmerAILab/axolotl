@@ -31,6 +31,17 @@ class AlpacaPrompter:
         return output.split(self.response_split)[1].strip()
 
 
+class CompletionPrompter(AlpacaPrompter):
+    def build_prompt(
+        self,
+        text: str
+    ) -> str:
+        return text
+
+    def get_response(self, output: str) -> str:
+        return output.strip()
+
+
 class GPTeacherPrompter(AlpacaPrompter):
     ...
 
