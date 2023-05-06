@@ -91,7 +91,7 @@ class AlpacaPromptTokenizingStrategy(InstructionPromptTokenizingStrategy):
 class CompletionPromptTokenizingStrategy(InstructionPromptTokenizingStrategy):
     def parse_instruction_fields(self, prompt) -> (str):
         return (
-            prompt["text"],
+            prompt["text"]
         )
 
     def tokenize_prompt(self, prompt):
