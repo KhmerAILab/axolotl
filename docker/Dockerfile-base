@@ -1,0 +1,72 @@
+ARG CUDA_VERSION="11.8.0"
+ARG CUDNN_VERSION="8"
+ARG UBUNTU_VERSION="22.04"
+
+FROM nvidia/cuda:$CUDA_VERSION-cudnn$CUDNN_VERSION-devel-ubuntu$UBUNTU_VERSION as base-builder
+
+ENV PATH="/root/miniconda3/bin:${PATH}"
+
+ARG PYTHON_VERSION="3.9"
+ARG PYTORCH="2.0.0"
+ARG CUDA="cu118"
+
+ENV PYTHON_VERSION=$PYTHON_VERSION
+
+RUN apt-get update
+RUN apt-get install -y wget git build-essential ninja-build git-lfs libaio-dev && rm -rf /var/lib/apt/lists/*
+
+RUN wget \
+    https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+    && mkdir /root/.conda \
+    && bash Miniconda3-latest-Linux-x86_64.sh -b \
+    && rm -f Miniconda3-latest-Linux-x86_64.sh
+
+RUN conda create -n "py${PYTHON_VERSION}" python="${PYTHON_VERSION}"
+
+ENV PATH="/root/miniconda3/envs/py${PYTHON_VERSION}/bin:${PATH}"
+
+WORKDIR /workspace
+
+RUN python3 -m pip install --upgrade pip && pip3 install packaging && \
+    python3 -m pip install --no-cache-dir -U torch==${PYTORCH} torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/$CUDA
+
+
+FROM base-builder AS flash-attn-builder
+
+WORKDIR /workspace
+
+ARG TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6+PTX"
+
+RUN git clone https://github.com/HazyResearch/flash-attention.git && \
+    cd flash-attention && \
+    python3 setup.py bdist_wheel
+
+FROM base-builder AS deepspeed-builder
+
+WORKDIR /workspace
+
+RUN git clone https://github.com/microsoft/DeepSpeed.git && \
+    cd DeepSpeed && \
+    MAX_CONCURRENCY=8 DS_BUILD_SPARSE_ATTN=0 DS_BUILD_OPS=1 python3 setup.py bdist_wheel
+
+FROM base-builder
+
+# recompile apex
+RUN python3 -m pip uninstall -y apex
+RUN git clone https://github.com/NVIDIA/apex
+#  `MAX_JOBS=1` disables parallel building to avoid cpu memory OOM when building image on GitHub Action (standard) runners
+RUN cd apex && MAX_JOBS=1 python3 -m pip install --global-option="--cpp_ext" --global-option="--cuda_ext" --no-cache -v --disable-pip-version-check .
+
+RUN mkdir /workspace/wheels
+COPY --from=deepspeed-builder /workspace/DeepSpeed/dist/deepspeed-*.whl wheels
+COPY --from=flash-attn-builder /workspace/flash-attention/dist/flash_attn-*.whl wheels
+
+RUN pip3 install wheels/deepspeed-*.whl wheels/flash_attn-*.whl
+RUN git lfs install --skip-repo
+RUN pip3 install "peft @ git+https://github.com/huggingface/peft.git@main" \
+        "accelerate @ git+https://github.com/huggingface/accelerate.git@main" \
+        "transformers @ git+https://github.com/huggingface/transformers.git@main" && \
+    pip3 install awscli && \
+    # The base image ships with `pydantic==1.8.2` which is not working
+    pip3 install -U --no-cache-dir pydantic
+

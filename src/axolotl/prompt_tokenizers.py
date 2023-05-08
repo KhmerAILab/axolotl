@@ -107,6 +107,15 @@ class CompletionPromptTokenizingStrategy(InstructionPromptTokenizingStrategy):
         )
 
 
+class JeopardyPromptTokenizingStrategy(InstructionPromptTokenizingStrategy):
+    def parse_instruction_fields(self, prompt) -> (str, str, str):
+        return (
+            prompt["question"],
+            prompt["category"],
+            "what is " + prompt["answer"],
+        )
+
+
 class OpenAssistantPromptTokenizingStrategy(InstructionPromptTokenizingStrategy):
     def parse_instruction_fields(self, prompt) -> (str, str, str):
         return (
