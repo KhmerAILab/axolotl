@@ -4,10 +4,11 @@ attrdict
 fire
 PyYAML==6.0
 black
-bitsandbytes
+bitsandbytes==0.37.2
 datasets
 accelerate
 sentencepiece
 wandb
 einops
 xformers
+protobuf==3.20.3
