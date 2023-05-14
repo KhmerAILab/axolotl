@@ -136,7 +136,7 @@ def load_model(
     if not tokenizer:
         try:
             if is_llama_derived_model and "LlamaTokenizer" in globals():
-                tokenizer = LlamaTokenizer.from_pretrained(model)
+                tokenizer = LlamaTokenizer.from_pretrained(base_model_config)
             else:
                 tokenizer = getattr(transformers, tokenizer_type).from_pretrained(model)
         except:
@@ -162,6 +162,13 @@ def load_model(
         logging.info("converting PEFT model w/ prepare_model_for_int8_training")
         model = prepare_model_for_int8_training(model)
 
+    model_vocab_size = model.get_input_embeddings().weight.size(0)
+    tokenzier_vocab_size = len(tokenizer)
+    if model_vocab_size!=tokenzier_vocab_size:
+        assert tokenzier_vocab_size > model_vocab_size
+        logging.info("Resize model embeddings to fit tokenizer")
+        model.resize_token_embeddings(tokenzier_vocab_size)
+        
     model, lora_config = load_adapter(model, cfg, adapter)
 
     if cfg.ddp and not load_in_8bit:
@@ -253,11 +260,13 @@ def load_lora(model, cfg):
         target_modules=cfg.lora_target_modules,
         lora_dropout=cfg.lora_dropout,
         fan_in_fan_out=cfg.lora_fan_in_fan_out,
+        modules_to_save=cfg.lora_modules_to_save,
         bias="none",
         task_type="CAUSAL_LM",
     )
 
     if cfg.lora_model_dir:
+        logging.info("Loading pretrained LORA")
         model = PeftModel.from_pretrained(
             model,
             cfg.lora_model_dir,
