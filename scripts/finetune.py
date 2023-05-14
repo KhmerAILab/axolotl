@@ -7,6 +7,7 @@ import signal
 import sys
 from pathlib import Path
 from typing import Optional
+from axolotl.prompters import CompletionPrompter
 
 import fire
 import torch
@@ -69,7 +70,8 @@ def do_inference(cfg, model, tokenizer, prompter="AlpacaPrompter"):
         instruction = get_multi_line_input()
         if not instruction:
             return
-        prompt = prompter_module().build_prompt(instruction=instruction)
+        print('--')
+        prompt = CompletionPrompter().build_prompt(text=instruction.strip('\n'))
         batch = tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
 
         model.eval()
@@ -80,8 +82,8 @@ def do_inference(cfg, model, tokenizer, prompter="AlpacaPrompter"):
                 do_sample=True,
                 use_cache=True,
                 repetition_penalty=1.1,
-                max_new_tokens=100,
-                temperature=0.9,
+                max_new_tokens=256,
+                temperature=0.5,
                 top_p=0.95,
                 top_k=40,
                 return_dict_in_generate=True,
@@ -89,7 +91,7 @@ def do_inference(cfg, model, tokenizer, prompter="AlpacaPrompter"):
                 output_hidden_states=False,
                 output_scores=False,
             )
-        print(tokenizer.decode(generated["sequences"].cpu().tolist()[0]))
+        print(tokenizer.decode(generated["sequences"].cpu().tolist()[0], skip_special_tokens=True))
 
 
 def choose_config(path: Path):
@@ -230,6 +232,9 @@ def train(
     )
     # TODO do we need this fix? https://huggingface.co/docs/accelerate/usage_guides/fsdp#saving-and-loading
     trainer.save_model(cfg.output_dir)
+
+    if cfg.adapter == 'lora':
+        model.save_pretrained(cfg.output_dir)
 
 
 if __name__ == "__main__":
