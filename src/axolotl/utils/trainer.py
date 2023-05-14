@@ -12,6 +12,7 @@ from torch.optim.lr_scheduler import OneCycleLR
 from transformers import EarlyStoppingCallback
 from transformers.trainer_pt_utils import get_parameter_names
 
+from axolotl.utils.callbacks import SavePeftModelCallback
 from axolotl.utils.schedulers import InterpolatingLogScheduler
 
 
@@ -103,8 +104,8 @@ def setup_trainer(cfg, train_dataset, eval_dataset, model, tokenizer):
         group_by_length=cfg.group_by_length,
         report_to="wandb" if cfg.use_wandb else None,
         run_name=cfg.wandb_run_id if cfg.use_wandb else None,
-        optim=cfg.optimizer if cfg.optimizer else None,
-        lr_scheduler_type=cfg.lr_scheduler if cfg.lr_scheduler not in ("one_cycle", "log_sweep") else "cosine",
+        optim=cfg.optimizer if cfg.optimizer else "adamw_hf",
+        lr_scheduler_type=cfg.lr_scheduler if cfg.lr_scheduler and cfg.lr_scheduler not in ("one_cycle", "log_sweep") else "cosine",
         weight_decay=cfg.weight_decay if cfg.weight_decay is not None else 0.0,
         **training_arguments_kwargs,
     )
@@ -188,6 +189,11 @@ def setup_trainer(cfg, train_dataset, eval_dataset, model, tokenizer):
         data_collator_kwargs["padding"] = "longest"
     else:
         data_collator_kwargs["pad_to_multiple_of"] = 8
+
+    callbacks = []
+    if cfg.adapter == 'lora':
+        callbacks.append(SavePeftModelCallback)
+
     trainer = transformers.Trainer(
         model=model,
         train_dataset=train_dataset,
@@ -198,6 +204,7 @@ def setup_trainer(cfg, train_dataset, eval_dataset, model, tokenizer):
             return_tensors="pt",
             **data_collator_kwargs,
         ),
+        callbacks=callbacks,
         **trainer_kwargs,
     )
 
