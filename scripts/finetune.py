@@ -7,7 +7,6 @@ import signal
 import sys
 from pathlib import Path
 from typing import Optional
-from axolotl.prompters import CompletionPrompter
 
 import fire
 import torch
@@ -26,6 +25,7 @@ from axolotl.utils.data import load_prepare_datasets
 from axolotl.utils.models import load_model
 from axolotl.utils.trainer import setup_trainer
 from axolotl.utils.wandb import setup_wandb_env_vars
+from axolotl.prompters import CompletionPrompter
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 DEFAULT_DATASET_PREPARED_PATH = "last_run_prepared"
@@ -82,7 +82,7 @@ def do_inference(cfg, model, tokenizer, prompter="AlpacaPrompter"):
                 do_sample=True,
                 use_cache=True,
                 repetition_penalty=1.1,
-                max_new_tokens=256,
+                max_new_tokens=128,
                 temperature=0.5,
                 top_p=0.95,
                 top_k=40,
